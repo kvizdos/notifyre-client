@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	apiKey := "<<API KEY HERE>>"
+	apiKey := "<<API KEY>>"
 
 	// Read file from disk
 	filePath := "test.pdf"

@@ -46,6 +46,7 @@ func Send(payload Payload, apiKey string) (*fax_response.SuccessResponse, error)
 	if resp.StatusCode != 200 {
 		var apiResponse fax_response.FailureResponse
 		err = json.Unmarshal(body, &apiResponse)
+		log.Printf("Failed to send Fax: %s", string(body))
 		if err != nil {
 			return nil, fmt.Errorf("failed to send request unmarshal failure: %s", err.Error())
 		}
@@ -55,6 +56,7 @@ func Send(payload Payload, apiKey string) (*fax_response.SuccessResponse, error)
 	var apiResponse fax_response.SuccessResponse
 	err = json.Unmarshal(body, &apiResponse)
 	if err != nil {
+		log.Printf("Failed to unmarshal Fax response: %s", string(body))
 		return nil, fmt.Errorf("failed to send request unmarshal failure: %s", err.Error())
 	}
 
