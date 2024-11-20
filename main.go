@@ -1,66 +1,47 @@
 package main
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"time"
+	"net/http"
+	"os"
 
-	"github.com/kvizdos/notifyre-client/fax"
+	"github.com/joho/godotenv"
+	notifyre_webhook "github.com/kvizdos/notifyre-client/webhooks"
 )
 
+func demoHandler(w http.ResponseWriter, r *http.Request) {
+	event, ok := notifyre_webhook.GetNotifyreEvent(r.Context())
+	if !ok {
+		http.Error(w, "Event not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	js, _ := json.Marshal(event)
+
+	log.Println(string(js))
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Event processed"))
+}
+
 func main() {
-	apiKey := "<<API KEY>>"
+	godotenv.Load()
 
-	// Read file from disk
-	filePath := "test.pdf"
-	fileData, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
+	// Initialize NotifyreWebhook middleware
+	notifyreMiddleware := notifyre_webhook.NotifyreFaxSentWebhook{
+		SecretKey: os.Getenv("NOTIFYRE_WEBHOOK_SECRET"),
+		ApiKey:    os.Getenv("NOTIFYRE_KEY"),
 	}
 
-	// Encode file data to base64
-	encodedFileData := base64.StdEncoding.EncodeToString(fileData)
+	// Create a new ServeMux
+	mux := http.NewServeMux()
 
-	resp, err := fax.Send(fax.Payload{
-		Faxes: fax.Fax{
-			Recipients: []fax.Recipient{
-				{
-					Type:  fax.FAX_NUMBER,
-					Value: "+14342324045",
-				},
-			},
-			SendFrom:        "+14342324045",
-			ClientReference: "This is a test fax.",
-			Subject:         "This is a test fax.",
-			IsHighQuality:   false,
-			Documents: []fax.Document{
-				{
-					Filename: "test.pdf",
-					Data:     encodedFileData,
-				},
-			},
-		},
-	}, apiKey)
+	// Register the middleware and the demoHandler for "/demo/webhook"
+	mux.Handle("/demo/webhook", notifyreMiddleware.ServeHTTP(http.HandlerFunc(demoHandler)))
 
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%+v\n", resp)
-
-	listResp, err := fax.ListSentFaxes(apiKey, fax.ListParameters{
-		FromDate: time.Now().AddDate(0, 0, -30).UTC(),
-		ToDate:   time.Now().UTC(),
-		Sort:     fax.ASCENDING,
-		Limit:    10,
-		Skip:     0,
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%+v\n", listResp)
+	// Start the HTTP server
+	port := ":8003"
+	fmt.Printf("Server running on http://localhost%s\n", port)
+	log.Fatal(http.ListenAndServe(port, mux))
 }

@@ -1,4 +1,4 @@
-package webhooks
+package notifyre_webhook
 
 import (
 	"crypto/hmac"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func verifySignature(header, payload, secret string) bool {
+func VerifySignature(header string, payload []byte, secret string) bool {
 	// Extract timestamp and signature
 	elements := strings.Split(header, ",")
 	var timestamp, signature string
@@ -28,7 +28,7 @@ func verifySignature(header, payload, secret string) bool {
 	}
 
 	// Generate signed payload
-	signedPayload := timestamp + "." + payload
+	signedPayload := timestamp + "." + string(payload)
 
 	// Compute expected signature
 	mac := hmac.New(sha256.New, []byte(secret))

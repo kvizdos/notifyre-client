@@ -38,44 +38,58 @@ type ListParameters struct {
 
 func (p *ListParameters) ToQueryString() string {
 	v := url.Values{}
-	if p.StatusType != "" {
-		v.Set("statusType", string(p.StatusType))
-	}
+
+	v.Set("statusType", string(p.StatusType))
+
 	v.Set("fromDate", fmt.Sprintf("%d", p.FromDate.Unix()))
 	v.Set("toDate", fmt.Sprintf("%d", p.ToDate.Unix()))
+	if p.Sort == "" {
+		p.Sort = ASCENDING
+	}
 	v.Set("sort", string(p.Sort))
+
 	v.Set("limit", fmt.Sprintf("%d", p.Limit))
 	v.Set("skip", fmt.Sprintf("%d", p.Skip))
+
+	log.Println(v.Encode())
 	return v.Encode()
 }
 
 type SentFaxesListItem struct {
-	ID                  string         `json:"id"`
-	FriendlyID          string         `json:"friendlyID"`
-	RecipientID         string         `json:"recipientID"`
-	FromNumber          string         `json:"fromNumber"`
-	ToNumber            string         `json:"to"`
-	Reference           string         `json:"reference"`
-	CreatedDateUtc      int64          `json:"createdDateUtc"`
-	QueuedDateUtc       int64          `json:"queuedDateUtc,omitempty"`
-	LastModifiedDateUtc int64          `json:"lastModifiedDateUtc"`
-	HighQuality         bool           `json:"highQuality"`
-	Pages               int            `json:"pages"`
-	Status              ListStatusType `json:"status"`
-	FailedMessage       string         `json:"failedMessage"`
+	ID                  string         `json:"ID"`
+	FriendlyID          string         `json:"FriendlyID"`
+	RecipientID         string         `json:"RecipientID"`
+	FromNumber          string         `json:"FromNumber"`
+	ToNumber            string         `json:"To"`
+	Reference           string         `json:"Reference"`
+	CreatedDateUtc      int64          `json:"CreatedDateUtc"`
+	QueuedDateUtc       int64          `json:"QueuedDateUtc,omitempty"`
+	LastModifiedDateUtc int64          `json:"LastModifiedDateUtc"`
+	HighQuality         bool           `json:"HighQuality"`
+	Pages               int            `json:"Pages"`
+	Status              ListStatusType `json:"Status"`
+	FailedMessage       string         `json:"FailedMessage"`
 }
 
 type SentFaxesListResponse struct {
-	Success    bool     `json:"success"`
-	StatusCode int      `json:"statusCode"`
-	Message    string   `json:"message"`
-	Errors     []string `json:"errors"`
+	Success    bool     `json:"Success"`
+	StatusCode int      `json:"StatusCode"`
+	Message    string   `json:"Message"`
+	Errors     []string `json:"Errors"`
 	Payload    struct {
-		Faxes []SentFaxesListItem `json:"faxes"`
-	}
+		Faxes []SentFaxesListItem `json:"Faxes"`
+	} `json:"Payload"`
 }
 
 func ListSentFaxes(apiKey string, payload ListParameters) (SentFaxesListResponse, error) {
+	if payload.FromDate.IsZero() || payload.ToDate.IsZero() {
+		return SentFaxesListResponse{}, fmt.Errorf("requires payload.FromDate and payload.ToDate")
+	}
+
+	if payload.Limit == 0 {
+		payload.Limit = 20
+	}
+
 	// Create request
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.notifyre.com/fax/send?%s", payload.ToQueryString()), nil)
 	if err != nil {
@@ -105,6 +119,10 @@ func ListSentFaxes(apiKey string, payload ListParameters) (SentFaxesListResponse
 	err = json.Unmarshal(body, &apiResponse)
 	if err != nil {
 		return SentFaxesListResponse{}, err
+	}
+
+	if apiResponse.StatusCode != 200 {
+		return apiResponse, fmt.Errorf("notifyre bad status: %d %s", apiResponse.StatusCode, apiResponse.Message)
 	}
 
 	return apiResponse, nil
